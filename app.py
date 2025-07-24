@@ -4,6 +4,8 @@ import pandas as pd
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
 
 st.title("Estrazione intensità colore lungo un segmento")
 
@@ -13,14 +15,20 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
     img_array = np.array(image)
 
+    # Converti l'immagine in base64 per usarla come sfondo nel canvas
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    img_data_url = f"data:image/png;base64,{img_str}"
+
     st.subheader("Traccia una linea sull'immagine")
-    
+
     # 2. Disegno su canvas
     canvas_result = st_canvas(
         fill_color="rgba(255, 165, 0, 0.3)",
         stroke_width=3,
         stroke_color="#ff0000",
-        background_image=image,
+        background_image_url=img_data_url,
         update_streamlit=True,
         height=image.height,
         width=image.width,
@@ -63,3 +71,4 @@ if uploaded_file is not None:
             # Esportazione CSV
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button("📥 Scarica CSV", data=csv, file_name="colori_segmento.csv", mime="text/csv")
+
