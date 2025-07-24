@@ -8,8 +8,7 @@ from io import BytesIO
 import base64
 
 # ------------------------------------------------------------------ #
-# Patch compatibilità streamlit-drawable-canvas 0.9.3  + Streamlit ≥ 1.42
-# La nuova funzione accetta *qualsiasi* lista di argomenti.
+# Patch compatibilità streamlit-drawable-canvas 0.9.3 + Streamlit ≥1.42
 # ------------------------------------------------------------------ #
 from streamlit.elements import image as _st_image_module
 
@@ -45,10 +44,10 @@ st.subheader("Traccia una linea sull'immagine")
 
 # -- Canvas ---------------------------------------------------------
 canvas_result = st_canvas(
-    fill_color="rgba(255, 165, 0, 0.3)",
+    fill_color="rgba(0, 0, 0, 0)",    # sfondo visibile (niente overlay)
     stroke_width=3,
-    stroke_color="#ff0000",
-    background_image=image,          # OK grazie alla patch
+    stroke_color="#000000",           # segmento nero
+    background_image=image,
     update_streamlit=True,
     height=image.height,
     width=image.width,
@@ -60,7 +59,7 @@ canvas_result = st_canvas(
 objs  = canvas_result.json_data["objects"] if canvas_result.json_data else []
 lines = [o for o in objs if o["type"] == "line"]
 if not lines:
-    st.warning("Disegna almeno un segmento rosso per continuare.")
+    st.warning("Disegna almeno un segmento nero per continuare.")
     st.stop()
 if not multi_segment:
     lines = lines[:1]
