@@ -8,18 +8,17 @@ from io import BytesIO
 import base64
 
 # ------------------------------------------------------------------ #
-# Patch per streamlit-drawable-canvas 0.9.3 su Streamlit ≥ 1.42
-# (ricrea la funzione mancante image_to_url)
+# Patch compatibilità streamlit-drawable-canvas 0.9.3  + Streamlit ≥ 1.42
+# La nuova funzione accetta *qualsiasi* lista di argomenti.
 # ------------------------------------------------------------------ #
 from streamlit.elements import image as _st_image_module
 
-def _image_to_url(pil_img, **_):
+def _image_to_url(pil_img, *_, **__):
     buf = BytesIO()
     pil_img.save(buf, format="PNG")
     b64 = base64.b64encode(buf.getvalue()).decode()
     return f"data:image/png;base64,{b64}"
 
-# Se la funzione non esiste la aggiungiamo
 if not hasattr(_st_image_module, "image_to_url"):
     _st_image_module.image_to_url = _image_to_url
 # ------------------------------------------------------------------ #
@@ -27,29 +26,29 @@ if not hasattr(_st_image_module, "image_to_url"):
 st.set_page_config(page_title="RGB Line Sampler", layout="wide")
 st.title("Estrazione intensità colore lungo un segmento")
 
-# -- Sidebar -----------------------------------------------------------
+# -- Sidebar --------------------------------------------------------
 st.sidebar.header("Impostazioni")
-avg_kernel = st.sidebar.checkbox("Media locale 3×3 (meno rumore)", value=False)
-line_width = st.sidebar.slider("Spessore linea grafico", 1, 5, 2)
+avg_kernel   = st.sidebar.checkbox("Media locale 3×3 (meno rumore)", value=False)
+line_width   = st.sidebar.slider("Spessore linea grafico", 1, 5, 2)
 multi_segment = st.sidebar.checkbox("Permetti più segmenti", value=False)
 
-# -- Caricamento immagine ---------------------------------------------
+# -- Caricamento immagine ------------------------------------------
 uploaded_file = st.file_uploader("Carica un'immagine", type=["png", "jpg", "jpeg"])
 if uploaded_file is None:
     st.info("➡️ Carica un’immagine per iniziare.")
     st.stop()
 
-image = Image.open(uploaded_file).convert("RGB")
+image     = Image.open(uploaded_file).convert("RGB")
 img_array = np.array(image)
 
 st.subheader("Traccia una linea sull'immagine")
 
-# -- Canvas ------------------------------------------------------------
+# -- Canvas ---------------------------------------------------------
 canvas_result = st_canvas(
     fill_color="rgba(255, 165, 0, 0.3)",
     stroke_width=3,
     stroke_color="#ff0000",
-    background_image=image,          # OK con la patch sopra
+    background_image=image,          # OK grazie alla patch
     update_streamlit=True,
     height=image.height,
     width=image.width,
@@ -57,8 +56,8 @@ canvas_result = st_canvas(
     key="canvas",
 )
 
-# -- Elaborazione ------------------------------------------------------
-objs = canvas_result.json_data["objects"] if canvas_result.json_data else []
+# -- Estrazione linee ----------------------------------------------
+objs  = canvas_result.json_data["objects"] if canvas_result.json_data else []
 lines = [o for o in objs if o["type"] == "line"]
 if not lines:
     st.warning("Disegna almeno un segmento rosso per continuare.")
@@ -79,17 +78,17 @@ for idx, ln in enumerate(lines, 1):
     for x, y in zip(xs, ys):
         if 0 <= x < img_array.shape[1] and 0 <= y < img_array.shape[0]:
             if avg_kernel:
-                sl = img_array[max(0, y-1):y+2, max(0, x-1):x+2]
-                r, g, b = sl.mean(axis=(0, 1))
+                window = img_array[max(0, y-1):y+2, max(0, x-1):x+2]
+                r, g, b = window.mean(axis=(0, 1))
             else:
                 r, g, b = img_array[y, x]
             rgb.append((x, y, int(r), int(g), int(b)))
 
     df = pd.DataFrame(rgb, columns=["x", "y", "R", "G", "B"])
     all_dfs.append(df)
-
     st.dataframe(df, use_container_width=True)
 
+    # Grafico
     fig, ax = plt.subplots()
     idxs = np.arange(len(df))
     ax.plot(idxs, df["R"], "r", linewidth=line_width, label="R")
@@ -100,11 +99,12 @@ for idx, ln in enumerate(lines, 1):
     ax.legend()
     st.pyplot(fig)
 
-# -- Download ----------------------------------------------------------
+# -- Download -------------------------------------------------------
 if all_dfs:
     if len(all_dfs) == 1:
         csv = all_dfs[0].to_csv(index=False).encode()
-        st.download_button("📥 Scarica CSV", csv, "colori_segmento.csv", "text/csv")
+        st.download_button("📥 Scarica CSV", csv,
+                           "colori_segmento.csv", "text/csv")
     else:
         import io, zipfile
         buf = io.BytesIO()
