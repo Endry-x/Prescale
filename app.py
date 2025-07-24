@@ -47,10 +47,10 @@ st.subheader("Traccia una linea sull'immagine")
 
 # ---------- Canvas --------------------------------------------------
 canvas_result = st_canvas(
-    fill_color="rgba(0, 0, 0, 0)",      # sfondo visibile
+    fill_color="rgba(0, 0, 0, 0)",   # sfondo visibile
     stroke_width=3,
-    stroke_color="#000000",             # segmento nero
-    background_image_url=img_url,       # <-- ora usa data-URL
+    stroke_color="#000000",          # segmento nero
+    background_image=image,          # <-- usa di nuovo background_image
     update_streamlit=True,
     height=image.height,
     width=image.width,
