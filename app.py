@@ -7,6 +7,23 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
 
+# ------------------------------------------------------------------ #
+# Patch per streamlit-drawable-canvas 0.9.3 su Streamlit ≥ 1.42
+# (ricrea la funzione mancante image_to_url)
+# ------------------------------------------------------------------ #
+from streamlit.elements import image as _st_image_module
+
+def _image_to_url(pil_img, **_):
+    buf = BytesIO()
+    pil_img.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return f"data:image/png;base64,{b64}"
+
+# Se la funzione non esiste la aggiungiamo
+if not hasattr(_st_image_module, "image_to_url"):
+    _st_image_module.image_to_url = _image_to_url
+# ------------------------------------------------------------------ #
+
 st.set_page_config(page_title="RGB Line Sampler", layout="wide")
 st.title("Estrazione intensità colore lungo un segmento")
 
@@ -18,19 +35,12 @@ multi_segment = st.sidebar.checkbox("Permetti più segmenti", value=False)
 
 # -- Caricamento immagine ---------------------------------------------
 uploaded_file = st.file_uploader("Carica un'immagine", type=["png", "jpg", "jpeg"])
-
 if uploaded_file is None:
     st.info("➡️ Carica un’immagine per iniziare.")
     st.stop()
 
 image = Image.open(uploaded_file).convert("RGB")
 img_array = np.array(image)
-
-# Converte in base64 → data-URL
-buf = BytesIO()
-image.save(buf, format="PNG")
-img_b64 = base64.b64encode(buf.getvalue()).decode()
-img_data_url = f"data:image/png;base64,{img_b64}"
 
 st.subheader("Traccia una linea sull'immagine")
 
@@ -39,7 +49,7 @@ canvas_result = st_canvas(
     fill_color="rgba(255, 165, 0, 0.3)",
     stroke_width=3,
     stroke_color="#ff0000",
-    background_image_url=img_data_url,   # <-- richiede streamlit-drawable-canvas ≥ 0.9.5
+    background_image=image,          # OK con la patch sopra
     update_streamlit=True,
     height=image.height,
     width=image.width,
@@ -101,7 +111,6 @@ if all_dfs:
         with zipfile.ZipFile(buf, "w") as zf:
             for i, df in enumerate(all_dfs, 1):
                 zf.writestr(f"segmento_{i}.csv", df.to_csv(index=False))
-        st.download_button("📥 Scarica tutti i CSV (ZIP)", buf.getvalue(),
-                           "colori_segmenti.zip", "application/zip")
-
-
+        st.download_button("📥 Scarica tutti i CSV (ZIP)",
+                           buf.getvalue(), "colori_segmenti.zip",
+                           "application/zip")
