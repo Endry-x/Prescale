@@ -1,7 +1,7 @@
 streamlit
+streamlit-drawable-canvas
 opencv-python
 numpy
 pillow
 matplotlib
 pandas
-streamlit-drawable-canvas
