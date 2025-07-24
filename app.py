@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (necessario per il 3-D)
 import math
 
 st.set_page_config(page_title="Campionamento Rosso 3×3", layout="wide")
@@ -14,9 +15,9 @@ if up is None:
     st.info("Carica un’immagine per iniziare.")
     st.stop()
 
-img       = Image.open(up).convert("RGB")
-arr       = np.asarray(img)
-h, w, _   = arr.shape
+img = Image.open(up).convert("RGB")
+arr = np.asarray(img)
+h, w, _ = arr.shape
 
 # ---------- Parametri griglia --------------------------------------
 n_tot = st.number_input("Numero totale di punti da rilevare", 1, 50_000, 400)
@@ -34,7 +35,7 @@ X, Ypix = np.meshgrid(xs, ys_pix)
 r_med = np.empty_like(X, dtype=np.uint8)
 for iy, y_pix in enumerate(ys_pix):
     for ix, x in enumerate(xs):
-        y_img      = h - 1 - y_pix          # coord immagine
+        y_img      = h - 1 - y_pix
         x0, x1     = max(0, x-1), min(w, x+2)
         y0, y1     = max(0, y_img-1), min(h, y_img+2)
         r_med[iy, ix] = arr[y0:y1, x0:x1, 0].mean()
@@ -43,7 +44,7 @@ for iy, y_pix in enumerate(ys_pix):
 df = pd.DataFrame({
     "x": X.flatten(),
     "y": Ypix.flatten(),          # origine in basso-sinistra
-    "R_medio": r_med.flatten()    # <-- ora 1-D
+    "R_medio": r_med.flatten()
 })
 st.dataframe(df.head(10_000))
 st.download_button("📥 Scarica CSV", df.to_csv(index=False).encode(),
@@ -58,8 +59,8 @@ for x, y_pix in zip(X.flatten(), Ypix.flatten()):
 st.subheader("Immagine con punti (verde)")
 st.image(draw_img, use_column_width=True)
 
-# ---------- Heat-map opzionale --------------------------------------
-with st.expander("Mostra heat-map intensità rosso"):
+# ---------- Heat-map 2-D --------------------------------------------
+with st.expander("Mostra heat-map 2-D intensità rosso"):
     fig, ax = plt.subplots()
     im = ax.imshow(r_med[::-1], cmap="Reds",
                    extent=[0, w, 0, h], origin="lower", aspect='auto')
@@ -67,3 +68,23 @@ with st.expander("Mostra heat-map intensità rosso"):
     ax.set_ylabel("y [px] (origine in basso)")
     fig.colorbar(im, ax=ax, label="R medio")
     st.pyplot(fig)
+
+# ---------- Grafico 3-D ---------------------------------------------
+with st.expander("Mostra grafico 3-D (x-y-R)"):
+    # sottocampioniamo se > 10k punti per performance
+    sample_idx = np.arange(df.shape[0])
+    if df.shape[0] > 10_000:
+        sample_idx = np.random.choice(sample_idx, 10_000, replace=False)
+
+    xs_3d = df.loc[sample_idx, "x"].to_numpy()
+    ys_3d = df.loc[sample_idx, "y"].to_numpy()
+    rs_3d = df.loc[sample_idx, "R_medio"].to_numpy()
+
+    fig3 = plt.figure(figsize=(6,6))
+    ax3  = fig3.add_subplot(111, projection='3d')
+    ax3.scatter(xs_3d, ys_3d, rs_3d, c=rs_3d, cmap="Reds", s=4)
+    ax3.set_xlabel("x [px]")
+    ax3.set_ylabel("y [px] (origine in basso)")
+    ax3.set_zlabel("R medio")
+    ax3.set_title("Intensità rosso in 3-D")
+    st.pyplot(fig3)
